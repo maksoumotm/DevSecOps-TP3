@@ -136,7 +136,7 @@ jobs:
       - name: Load and run app
         run: |
           docker load < image.tar
-          docker run -d -p 3000:3000 --name app vuln-app:${{ github.sha }}
+          docker run -d -p 3000:3000 -e JWT_SECRET="super-secret-key-that-is-at-least-thirty-two-characters-long" -e ADMIN_USER="admin" -e ADMIN_PASS="admin" --name app vuln-app:${{ github.sha }}
           sleep 5
       
       - name: Set permissions for ZAP
