@@ -37,13 +37,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/secrets
-            p/owasp-top-ten
+      - name: Install and Run Semgrep
+        run: |
+          pipx install semgrep
+          semgrep ci
+        env:
+          SEMGREP_RULES: p/security-audit p/secrets p/owasp-top-ten
 
   # ═══════════════════════════════════════
   # 3. SCA - Analyse des dépendances (Software Composition Analysis)
@@ -75,6 +74,30 @@ jobs:
         with:
           name: npm-audit
           path: src/audit.json
+
+  # ═══════════════════════════════════════
+  # 3. CODEQL
+  # Analyse statique avancée fournie par GitHub.
+  # Détecte les failles complexes et flux de données non sécurisés.
+  # ═══════════════════════════════════════
+  codeql:
+    name: 🧠 CodeQL Actions
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
 
   # ═══════════════════════════════════════
   # 4. SECRET DETECTION
@@ -149,7 +172,21 @@ jobs:
           allow_issue_writing: false        
 
   # ═══════════════════════════════════════
-  # 6. RAPPORT FINAL
+  # 6. SECURITY GATE
+  # Bloque le déploiement si l'une des analyses de sécurité échoue
+  # ═══════════════════════════════════════
+  security-gate:
+    name: 🛡️ Security Gate
+    runs-on: ubuntu-latest
+    needs: [sast, sca, secrets, container-scan, codeql, dast]
+    steps:
+      - name: Validation finale
+        run: |
+          echo "✅ Tous les scans de sécurité ont réussi."
+          echo "🚀 Processus de déploiement autorisé."
+
+  # ═══════════════════════════════════════
+  # 7. RAPPORT FINAL
   # Génère un résumé de tous les scans de sécurité
   # Vérifie le statut de chaque job et fait ÉCHOUER le pipeline si des vulnérabilités sont détectées
   # S'exécute toujours (if: always()) même si des jobs précédents ont échoué
@@ -157,7 +194,7 @@ jobs:
   report:
     name: 📊 Report
     runs-on: ubuntu-latest
-    needs: [sast, sca, secrets, container-scan]
+    needs: [sast, sca, secrets, container-scan, dast, codeql]
     if: always()
     steps:
       - name: Generate JSON Report
@@ -185,13 +222,21 @@ jobs:
               "container_scan": {
                 "status": "${{ needs.container-scan.result }}",
                 "tool": "Trivy"
+              },
+              "codeql": {
+                "status": "${{ needs.codeql.result }}",
+                "tool": "CodeQL"
+              },
+              "dast": {
+                "status": "${{ needs.dast.result }}",
+                "tool": "ZAP"
               }
             },
             "summary": {
-              "total_checks": 4,
-              "passed": $(echo '${{ needs.sast.result }} ${{ needs.sca.result }} ${{ needs.secrets.result }} ${{ needs.container-scan.result }}' | grep -o "success" | wc -l),
-              "failed": $(echo '${{ needs.sast.result }} ${{ needs.sca.result }} ${{ needs.secrets.result }} ${{ needs.container-scan.result }}' | grep -o "failure" | wc -l),
-              "overall_status": "$([[ "${{ needs.sast.result }}" == "failure" ]] || [[ "${{ needs.sca.result }}" == "failure" ]] || [[ "${{ needs.secrets.result }}" == "failure" ]] || [[ "${{ needs.container-scan.result }}" == "failure" ]] && echo "FAILED" || echo "PASSED")"
+              "total_checks": 6,
+              "passed": $(echo '${{ needs.sast.result }} ${{ needs.sca.result }} ${{ needs.secrets.result }} ${{ needs.container-scan.result }} ${{ needs.codeql.result }} ${{ needs.dast.result }}' | grep -o "success" | wc -l),
+              "failed": $(echo '${{ needs.sast.result }} ${{ needs.sca.result }} ${{ needs.secrets.result }} ${{ needs.container-scan.result }} ${{ needs.codeql.result }} ${{ needs.dast.result }}' | grep -o "failure" | wc -l),
+              "overall_status": "$([[ "${{ needs.sast.result }}" == "failure" ]] || [[ "${{ needs.sca.result }}" == "failure" ]] || [[ "${{ needs.secrets.result }}" == "failure" ]] || [[ "${{ needs.container-scan.result }}" == "failure" ]] || [[ "${{ needs.codeql.result }}" == "failure" ]] || [[ "${{ needs.dast.result }}" == "failure" ]] && echo "FAILED" || echo "PASSED")"
             }
           }
           EOF
@@ -214,6 +259,8 @@ jobs:
           echo "- SCA: ${{ needs.sca.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Secrets: ${{ needs.secrets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Container Scan: ${{ needs.container-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- CodeQL: ${{ needs.codeql.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- DAST: ${{ needs.dast.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📥 **JSON Report available in artifacts**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -221,7 +268,9 @@ jobs:
           if [[ "${{ needs.sast.result }}" == "failure" ]] || \
              [[ "${{ needs.sca.result }}" == "failure" ]] || \
              [[ "${{ needs.secrets.result }}" == "failure" ]] || \
-             [[ "${{ needs.container-scan.result }}" == "failure" ]]; then
+             [[ "${{ needs.container-scan.result }}" == "failure" ]] || \
+             [[ "${{ needs.codeql.result }}" == "failure" ]] || \
+             [[ "${{ needs.dast.result }}" == "failure" ]]; then
             echo "❌ **Security issues detected!**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "⚠️ Please review the failed jobs above" >> $GITHUB_STEP_SUMMARY
