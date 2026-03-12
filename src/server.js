@@ -41,28 +41,17 @@ app.post('/api/login',
 
         const { username, password } = req.body;
 
-        // VULNERABILITÉ INTENTIONNELLE : Injection SQL pour l'exercice 1 (Semgrep)
-        // Note: Ceci est un code factice juste pour déclencher l'alerte SAST.
-        // On utilise mysql2 car c'est un sink connu de Semgrep (contrairement à sqlite3)
-        const mysql = require('mysql2');
-        const connection = mysql.createPool({ host: 'localhost', user: 'root', database: 'app' });
-
-        // Requête concaténée vulnérable - Semgrep suivra req.body -> connection.query()
-        const query = "SELECT * FROM users WHERE username = '" + req.body.username + "' AND password = '" + req.body.password + "'";
-        console.log("Exécution de la requête :", query);
-
-        connection.execute(query, (err, rows) => {
-            if (rows?.length > 0 || (req.body.username === process.env.ADMIN_USER && req.body.password === process.env.ADMIN_PASS)) {
-                const token = jwt.sign(
-                    { username: req.body.username },
-                    SECRET,
-                    { expiresIn: '1h' }
-                );
-                res.json({ token });
-            } else {
-                res.status(401).json({ error: 'Invalid credentials' });
-            }
-        });
+        // ✅ Vérification sécurisée des identifiants
+        if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
+            const token = jwt.sign(
+                { username },
+                SECRET,
+                { expiresIn: '1h' }
+            );
+            res.json({ token });
+        } else {
+            res.status(401).json({ error: 'Invalid credentials' });
+        }
     }
 );
 
