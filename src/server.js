@@ -41,22 +41,29 @@ app.post('/api/login',
 
         const { username, password } = req.body;
 
-        // VULNÉRABILITÉ INTENTIONNELLE POUR L'EXERCICE 1 (Détectable par Semgrep)
-        // Simulation d'une requête SQL vulnérable à l'injection
-        const query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'";
-        console.log("Executing query:", query);
+        // VULNERABILITÉ INTENTIONNELLE : Injection SQL pour l'exercice 1 (Semgrep)
+        // Note: Ceci est un code factice juste pour déclencher l'alerte SAST.
+        const sqlite3 = require('sqlite3').verbose();
+        const db = new sqlite3.Database(':memory:');
 
-        // Ici : vérification réelle avec bcrypt + DB
-        if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
-            const token = jwt.sign(
-                { username },
-                SECRET,
-                { expiresIn: '1h' }
-            );
-            res.json({ token });
-        } else {
-            res.status(401).json({ error: 'Invalid credentials' });
-        }
+        // Requête concaténée vulnérable - on utilise req.body directement car 
+        // le moteur Semgrep gratuit détecte moins bien la déstructuration
+        const query = "SELECT * FROM users WHERE username = '" + req.body.username + "' AND password = '" + req.body.password + "'";
+        console.log("Exécution de la requête :", query);
+
+        db.get(query, (err, row) => {
+            // Simulons que la DB renvoie toujours vrai si l'injection ou les identifiants admin passent
+            if (row || (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASS)) {
+                const token = jwt.sign(
+                    { username },
+                    SECRET,
+                    { expiresIn: '1h' }
+                );
+                res.json({ token });
+            } else {
+                res.status(401).json({ error: 'Invalid credentials' });
+            }
+        });
     }
 );
 
