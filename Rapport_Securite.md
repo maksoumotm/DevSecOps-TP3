@@ -1,6 +1,6 @@
 # Rapport de Sécurité — Pipeline DevSecOps TP3
 
-**Auteur** : [Votre Nom]  
+**Auteur** : Maxime Courgeau 
 **Date** : 12/03/2026  
 **Repo** : `maksoumotm/DevSecOps-TP3`  
 **Statut final** : ✅ Pipeline entièrement vert
