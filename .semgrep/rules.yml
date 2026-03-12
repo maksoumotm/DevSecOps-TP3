@@ -1,50 +1,23 @@
 rules:
-  - id: sql-injection-string-concat
-    languages: [javascript, typescript]
-    severity: ERROR
-    message: |
-      Injection SQL détectée : une entrée utilisateur (req.body, req.params, req.query)
-      est concaténée directement dans une chaîne SQL. Utilisez des requêtes paramétrées.
-    metadata:
-      category: security
-      cwe: CWE-89
-      owasp: "A1:2017 - Injection"
-    patterns:
-      - pattern: |
-          $QUERY = <... + $REQ.body.$X + ...>
-      - pattern-either:
-          - pattern: $CONNECTION.execute($QUERY, ...)
-          - pattern: $CONNECTION.query($QUERY, ...)
-          - pattern: $CONNECTION.run($QUERY, ...)
-          - pattern: $DB.get($QUERY, ...)
-          - pattern: $DB.all($QUERY, ...)
-          - pattern: $DB.run($QUERY, ...)
-    pattern-sinks:
-      - patterns:
-          - pattern-either:
-              - pattern: $CONNECTION.execute($SINK, ...)
-              - pattern: $CONNECTION.query($SINK, ...)
-
   - id: sql-injection-taint-express
     languages: [javascript, typescript]
     severity: ERROR
     message: >
-      Injection SQL (taint) : valeur issue de req.body utilisée directement
-      dans une requête SQL sans échappement.
+      Injection SQL détectée : valeur issue de req.body/req.params/req.query
+      utilisée directement dans une requête SQL sans paramètre préparé.
     metadata:
       category: security
       cwe: CWE-89
+      owasp: "A1:2017 - Injection"
     mode: taint
     pattern-sources:
-      - patterns:
-          - pattern: req.body
-          - pattern: req.params
-          - pattern: req.query
+      - pattern: req.body
+      - pattern: req.params
+      - pattern: req.query
     pattern-sinks:
-      - patterns:
-          - pattern-either:
-              - pattern: $X.execute($SQL, ...)
-              - pattern: $X.query($SQL, ...)
-              - pattern: $X.get($SQL, ...)
-              - pattern: $X.run($SQL, ...)
-              - pattern: $X.all($SQL, ...)
+      - pattern-either:
+          - pattern: $X.execute($SQL, ...)
+          - pattern: $X.query($SQL, ...)
+          - pattern: $X.get($SQL, ...)
+          - pattern: $X.run($SQL, ...)
+          - pattern: $X.all($SQL, ...)
