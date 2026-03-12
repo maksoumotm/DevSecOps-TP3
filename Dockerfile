@@ -1,6 +1,9 @@
 # ✅ Image Alpine (plus légère et sécurisée) - Version la plus récente
 FROM node:22-alpine
 
+# Mettre à jour les paquets OS pour patcher les vulnérabilités connues (ex: Alpine 3.23)
+RUN apk update && apk upgrade --no-cache
+
 WORKDIR /app
 
 # ✅ Copie des dépendances d'abord (cache)
