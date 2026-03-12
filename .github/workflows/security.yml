@@ -40,7 +40,7 @@ jobs:
       - name: Install and Run Semgrep
         run: |
           pipx install semgrep
-          semgrep scan --config p/security-audit --config p/secrets --config p/owasp-top-ten --error src/
+          semgrep scan --config p/security-audit --config p/secrets --config p/owasp-top-ten --config .semgrep/rules.yml --error src/
 
   # ═══════════════════════════════════════
   # 3. SCA - Analyse des dépendances (Software Composition Analysis)
