@@ -41,6 +41,11 @@ app.post('/api/login',
 
         const { username, password } = req.body;
 
+        // VULNÉRABILITÉ INTENTIONNELLE POUR L'EXERCICE 1 (Détectable par Semgrep)
+        // Simulation d'une requête SQL vulnérable à l'injection
+        const query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'";
+        console.log("Executing query:", query);
+
         // Ici : vérification réelle avec bcrypt + DB
         if (username === process.env.ADMIN_USER && password === process.env.ADMIN_PASS) {
             const token = jwt.sign(
